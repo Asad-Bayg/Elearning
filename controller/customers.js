@@ -1,4 +1,6 @@
 const customerModel = require("../model/customers");
+const accountModel = require("../model/account");
+const transactionModel = require("../model/transaction");
 const { validationResult } = require("express-validator");
 
 exports.customerData = async (req, res, next) => {
@@ -9,44 +11,50 @@ exports.customerData = async (req, res, next) => {
     error.statusCode = 422;
     return next(error);
   }
+
   let { username } = req.body;
 
   try {
-    const data = await customerModel.aggregate([
-      {
-        $match: { username },
-      },
-      {
-        $project: { name: 1, birthdate: 1, email: 1, accounts: 1, _id: 0 },
-      },
-      {
-        $lookup: {
-          from: "accounts",
-          localField: "accounts",
-          foreignField: "account_id",
-          as: "accountss",
-        },
-      },
-      {
-        $unwind: "$accounts",
-      },
+    let customer = await customerModel
+      .findOne({ username })
+      .select("name birthdate email accounts -_id");
 
-      {
-        $unset: ["accounts._id", "accounts.products"],
-      },
-    ]);
-
-    // await customerModel
-    //   .findOne({ username })
-    //   .select("name birthdate  email accounts -_id");
-
-    if (!data) {
-      const error = new Error("Donot Exist");
+    if (!customer) {
+      const error = new Error("customer does not exist");
       error.statusCode = 400;
       throw error;
     }
+
+    let AccountId = customer.accounts;
+
+    let account = await accountModel
+      .find({ account_id: { $in: AccountId } })
+      .select("account_id limit -_id");
+
+    let transaction = await transactionModel
+      .find({
+        account_id: { $in: AccountId },
+      })
+      .select("transaction_count account_id -_id");
+
+    let accounts = [];
+
+    account.filter((v, i) => {
+      transaction.find((val) => {
+        if (v.account_id == val.account_id) {
+          accounts.push({
+            transaction_count: val.transaction_count,
+            account_id: v.account_id,
+            limit: v.limit,
+          });
+        }
+      });
+    });
+
+    customer.accounts = accounts;
+
     res.json({
-      customer: data,
+      customer,
     });
   } catch (err) {
     if (!err.statusCode) {
