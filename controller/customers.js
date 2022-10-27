@@ -12,9 +12,34 @@ exports.customerData = async (req, res, next) => {
   let { username } = req.body;
 
   try {
-    const data = await customerModel
-      .findOne({ username })
-      .select("name birthdate  email accounts -_id");
+    const data = await customerModel.aggregate([
+      {
+        $match: { username },
+      },
+      {
+        $project: { name: 1, birthdate: 1, email: 1, accounts: 1, _id: 0 },
+      },
+      {
+        $lookup: {
+          from: "accounts",
+          localField: "accounts",
+          foreignField: "account_id",
+          as: "accountss",
+        },
+      },
+      {
+        $unwind: "$accounts",
+      },
+
+      {
+        $unset: ["accounts._id", "accounts.products"],
+      },
+    ]);
+
+    // await customerModel
+    //   .findOne({ username })
+    //   .select("name birthdate  email accounts -_id");
+
     if (!data) {
       const error = new Error("Donot Exist");
       error.statusCode = 400;
