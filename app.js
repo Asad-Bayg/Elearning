@@ -23,7 +23,7 @@ app.use((error, req, res, next) => {
 
 mongooose
   .connect(
-    "mongodb+srv://asadbaig:asadbaig@cluster0.4msrrkl.mongodb.net/elearning?retryWrites=true&w=majority"
+    "mongodb+srv:
   )
   .then((result) => {
     app.listen(300, () => {
